@@ -1,0 +1,18 @@
+Spring AI 核心概念速览（本文件是 /ai/rag 接口的知识库文档之一）
+====================================================
+
+ChatModel：与具体模型服务对接的底层接口，负责发送请求、接收响应。每个模型厂商对应一个实现，例如 DashScopeChatModel 对接通义千问系列。
+
+ChatClient：构建在 ChatModel 之上的高层流式 API，是业务代码的推荐入口。它支持同步调用 call() 与流式调用 stream()，并支持在调用链上挂载 Advisor。
+
+Advisor：ChatClient 调用链上的拦截器机制，思想类似 Servlet Filter。请求前按顺序加工 prompt，响应后按逆序加工结果。记忆（MessageChatMemoryAdvisor）、RAG（QuestionAnswerAdvisor）、日志（SimpleLoggerAdvisor）都以 Advisor 形式接入。Advisor 的执行顺序由 order 值决定。
+
+Memory 会话记忆：大模型本身无状态，会话记忆的本质是框架把历史消息在每次请求前回放进 prompt。Spring AI 的记忆由三部分组成：ChatMemoryRepository 负责存储（内存或数据库），MessageWindowChatMemory 负责窗口策略（只保留最近 N 条），MessageChatMemoryAdvisor 负责接入调用链。不同会话用 conversationId 隔离，该参数在 1.1.x 中必须显式传入。
+
+Tool Calling 工具调用：让模型决定何时调用开发者提供的 Java 方法。模型返回 tool_call 指令，框架在本机执行方法并把结果回传给模型，模型再组织最终回答。工具用 @Tool 注解描述，参数用 @ToolParam 描述。描述写得好坏直接影响模型选工具的准确率。
+
+RAG 检索增强生成：先从向量库检索与问题语义最相近的文本块，再把检索结果作为参考资料放进 prompt 让模型作答。建库流程是读取（TextReader）、切分（TokenTextSplitter）、向量化入库（VectorStore）。向量检索按语义相似度匹配，而不是关键词匹配。生产环境向量库可选 pgvector、Milvus、Redis 等。
+
+MCP 模型上下文协议：Anthropic 发起的开放协议，统一了 AI 应用与外部工具、数据源的连接方式。提供能力的一方实现 MCP Server，使用的一方通过 MCP Client 发现并调用。Spring AI 提供了 MCP Server 与 Client 的 starter，本地 @Tool 方法可以通过 MethodToolCallbackProvider 一键暴露为 MCP 工具。
+
+结构化输出：通过 BeanOutputConverter 根据目标 Java 类型生成 JSON Schema 指令，模型按格式返回后自动反序列化为强类型对象。在 ChatClient 上用 entity() 方法一步完成。
