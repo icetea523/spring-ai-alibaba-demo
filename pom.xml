@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Spring AI Alibaba 核心知识点学习 Demo
+  =====================================
+  版本对齐（2026-09 官方推荐，来源：https://agentic-spring-ai.github.io/website/docs/versions/）：
+    - Spring AI Alibaba : 1.1.2.0（当前推荐版本）
+    - Spring AI         : 1.1.2（与 SAA 1.1.2.0 严格对应）
+    - Spring Boot       : 3.5.x（本工程使用 3.5.6）
+    - Java              : 17+
+
+  依赖管理采用官方推荐的 BOM 方式：三个 BOM（SAA / Spring AI / Spring Boot）统一管版本，
+  业务依赖只写 groupId:artifactId，不写版本号，避免手拼版本导致冲突。
+
+  知识点 → 依赖对应关系：
+    - ChatModel / ChatClient / 流式 / 结构化输出 / Memory / Advisor / RAG / Tool Calling
+        → spring-ai-alibaba-starter-dashscope（内含 Spring AI 核心抽象 + 通义模型适配）
+    - Graph 多智能体 / 工作流编排
+        → spring-ai-alibaba-graph-core
+    - MCP 服务端（把本地工具暴露成标准 MCP Server）
+        → spring-ai-starter-mcp-server-webmvc（Spring AI 官方 MCP Server Starter）
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.6</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.example</groupId>
+    <artifactId>spring-ai-alibaba-demo</artifactId>
+    <version>1.0.0</version>
+    <name>spring-ai-alibaba-demo</name>
+    <description>Spring AI Alibaba 1.1.2.0 核心知识点学习 Demo，每个接口对应一个知识点</description>
+
+    <properties>
+        <java.version>17</java.version>
+        <!-- 官方版本说明页给出的对齐关系：SAA 1.1.2.0 <-> Spring AI 1.1.2 <-> Boot 3.5.x -->
+        <spring-ai.version>1.1.2</spring-ai.version>
+        <spring-ai-alibaba.version>1.1.2.0</spring-ai-alibaba.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring AI 官方 BOM：管理 ChatModel / Advisor / MCP 等核心组件版本 -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- SAA BOM：管理 graph-core 等组件版本；dashscope starter 需显式指定版本 -->
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-bom</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Web 能力：所有演示接口都是 HTTP 接口；Spring MVC 原生支持返回 Flux 做流式输出 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--
+          DashScope 接入 starter（知识点 3）：
+          引入后会自动装配 ChatModel、EmbeddingModel、ChatClient.Builder 等 Bean，
+          底层对接阿里云百炼（DashScope）的通义系列模型。
+          API Key 通过环境变量 DASHSCOPE_API_KEY 注入，见 application.yml。
+          注：该 starter 未纳入 spring-ai-alibaba-bom 管理，版本需显式指定（与 SAA 同版本）。
+        -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
+        </dependency>
+
+        <!--
+          RAG Advisor 模块（知识点 7）：1.1.x 起 QuestionAnswerAdvisor 独立成该 artifact，
+          引入后即可用 QuestionAnswerAdvisor.builder(vectorStore).build() 一行接入检索增强。
+          版本由 spring-ai-bom 管理。
+        -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-advisors-vector-store</artifactId>
+        </dependency>
+
+        <!--
+          Graph 工作流 / 多智能体核心（知识点 9）：
+          StateGraph 状态图编排，支持条件边、并行、子图、持久化等，
+          是 SAA 实现 Workflow 与 Multi-agent 的基础。
+        -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-graph-core</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
+        </dependency>
+
+        <!--
+          MCP Server（知识点 8）：把本工程的 @Tool 工具暴露成标准 MCP（Model Context Protocol）
+          服务，供 Claude Desktop / Cursor 等支持 MCP 的客户端调用。
+          启动后会在 8080 端口暴露 MCP 端点（具体路径见启动日志）。
+        -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- 国内镜像加速：阿里云公共仓库（含 central 镜像），海外环境可删除本段 -->
+    <repositories>
+        <repository>
+            <id>aliyun-public</id>
+            <url>https://maven.aliyun.com/repository/public</url>
+        </repository>
+        <repository>
+            <id>spring-central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+    </repositories>
+</project>
