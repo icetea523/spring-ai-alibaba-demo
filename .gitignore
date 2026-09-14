@@ -1,0 +1,19 @@
+target/
+*.class
+*.jar
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 环境变量文件（切勿把 API Key 提交进仓库！）
+.env
