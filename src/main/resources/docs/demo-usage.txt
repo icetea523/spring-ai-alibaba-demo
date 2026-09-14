@@ -1,0 +1,26 @@
+spring-ai-alibaba-demo 使用说明（本文件是 /ai/rag 接口的知识库文档之二）
+====================================================
+
+本工程是 Spring AI Alibaba 1.1.2.0 的学习演示项目，基于 Spring Boot 3.5 与 Java 17 构建，模型服务使用阿里云百炼 DashScope 的通义千问系列。
+
+运行前需要设置环境变量 DASHSCOPE_API_KEY，取值来自阿里云百炼控制台的 API-KEY 管理页面。使用 mvn spring-boot:run 启动，默认端口 8080。
+
+演示接口与知识点的对应关系如下。
+
+第一，基础对话与模型接入：GET /ai/chat-model 演示直接调用底层 ChatModel；GET /ai/chat-client 演示 ChatClient 流式 API、默认 System Prompt 与模板占位符。
+
+第二，流式输出：GET /ai/stream 以 SSE 方式逐段返回回答，使用 stream() 与 Flux。
+
+第三，结构化输出：GET /ai/struct 返回强类型的电影推荐对象，使用 entity() 方法。
+
+第四，工具调用：GET /ai/tool 注册了天气查询与时间查询两个工具，模型会根据问题自主决定调用哪个工具。
+
+第五，会话记忆与 Advisor：GET /ai/memory/chat 使用 MessageWindowChatMemory 与 MessageChatMemoryAdvisor，同一个 conversationId 的多次对话可以互相记住内容，不同 conversationId 之间相互隔离。
+
+第六，RAG：应用启动时自动把 docs 目录下的知识文档向量化入库，GET /ai/rag 使用 QuestionAnswerAdvisor 基于知识库回答问题。
+
+第七，MCP：工程内嵌一个 MCP Server，把天气与时间工具通过标准 MCP 协议暴露，启动日志中可以找到端点地址。
+
+第八，Graph 工作流：GET /agent/graph/run 运行一张状态图，先由分类节点判断问题属于概念类还是代码类，再由条件边路由到对应节点回答。
+
+进阶学习方向：Graph 多智能体（Supervisor、Routing 模式）、图的持久化与断点恢复、Studio 可视化调试、A2A 智能体通信。
