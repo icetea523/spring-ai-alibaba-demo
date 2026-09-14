@@ -1,0 +1,60 @@
+# ============================================================================
+# Spring AI Alibaba 学习 Demo 配置
+# ============================================================================
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: spring-ai-alibaba-demo
+
+  ai:
+    # ------------------------------------------------------------------
+    # 【知识点 2】DashScope（阿里云百炼）接入配置
+    # ------------------------------------------------------------------
+    # API Key 不要写死在配置文件里！用环境变量注入：
+    #   export DASHSCOPE_API_KEY=sk-xxxx        （Linux/macOS）
+    #   set DASHSCOPE_API_KEY=sk-xxxx           （Windows CMD）
+    # 获取地址：https://bailian.console.aliyun.com  →  API-KEY 管理
+    # 注意：DashScope starter 在启动时会校验 key 非空，因此冒号后给了占位默认值——
+    # 没配环境变量应用也能启动，但调用模型接口会返回鉴权错误；正式使用务必 export 真实 key。
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY:sk-placeholder-please-set-real-key}
+      chat:
+        options:
+          # 通义千问对话模型。学习阶段推荐 qwen-plus（效果/成本均衡）；
+          # 追求效果用 qwen-max，追求便宜用 qwen-turbo
+          model: qwen-plus
+          temperature: 0.7   # 越高越有创造性，越低越稳定（结构化输出场景建议调低）
+      embedding:
+        options:
+          # 文本向量化模型，RAG 建库时使用（知识点 7）
+          model: text-embedding-v3
+
+    # ------------------------------------------------------------------
+    # 【知识点 8】MCP Server 配置（starter 引入即生效，以下为显式声明）
+    # ------------------------------------------------------------------
+    mcp:
+      server:
+        name: saa-demo-mcp-server   # MCP 客户端里看到的服务名
+        version: 1.0.0
+        type: SYNC                  # 同步服务端；WEBMVC starter 会在 8080 暴露 SSE 端点
+
+        # 【进阶】如果要作为 MCP Client 连接其他 MCP Server，取消注释并引入
+        # spring-ai-starter-mcp-client 依赖（完整说明见 McpServerConfig 注释）：
+        # client:
+        #   enabled: true
+        #   stdio:
+        #     connections:
+        #       filesystem:
+        #         command: npx
+        #         args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+# ---------------------------------------------------------------------------
+# 让 SimpleLoggerAdvisor（知识点 6）的请求/响应日志可见：DEBUG 级别
+# 调 Tool Calling 接口时，控制台能看到模型发出的 tool_call 与工具结果回传
+# ---------------------------------------------------------------------------
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: DEBUG
