@@ -27,6 +27,8 @@
 | 7 | RAG 检索增强 | `GET /ai/rag` | `config/RagConfig` + `controller/RagController` |
 | 8 | MCP（Server 端 + Client 接入姿势） | MCP 端点（见启动日志） | `mcp/McpServerConfig` |
 | 9 | Graph 工作流 / 条件路由（多智能体基础） | `GET /agent/graph/run` | `graph/GraphConfig` + `graph/GraphController` |
+| 10 | 动态工具池（统一注册 / 分组 / 按需挂载 / 运行时摘挂） | `GET /ai/tool-pool` | `tools/pool/*` + `config/ToolPoolConfig` + `controller/ToolPoolController` |
+| 11 | 并发工具调用（时序观察 / 竞态反例正例 / 每会话一实例） | `GET /ai/tool-parallel` `GET /ai/tool-race` `GET /ai/tool-session` | `tools/ConcurrencyDemoTools` + `config/SessionToolRegistry` + `controller/ConcurrencyToolController` |
 
 ---
 
@@ -88,6 +90,26 @@ curl "http://localhost:8080/ai/rag?question=Advisor在Spring AI里是什么角�
 # 知识点 9：Graph 工作流（问题会被分类路由到不同节点）
 curl "http://localhost:8080/agent/graph/run?query=什么是Spring AI的Advisor机制？"
 curl "http://localhost:8080/agent/graph/run?query=怎么用Spring AI写一个流式接口？"
+
+# 知识点 10：动态工具池（先看池子全貌，再做"挂载子集"对照实验）
+curl "http://localhost:8080/ai/tool-pool/status"
+curl "http://localhost:8080/ai/tool-pool?groups=travel&question=广州去上海有什么航班？顺便推荐个酒店"
+curl "http://localhost:8080/ai/tool-pool?groups=travel&question=美元兑人民币汇率是多少？"   # 只挂了 travel，模型没有汇率工具，只能坦白
+curl "http://localhost:8080/ai/tool-pool?groups=travel,finance&question=美元兑人民币汇率是多少？"   # 挂上 finance 就能查了
+# 运行时摘挂（不重启）：下游故障时先把相关工具摘掉止血
+curl "http://localhost:8080/ai/tool-pool/toggle?group=finance&enabled=false"
+curl "http://localhost:8080/ai/tool-pool/toggle?group=finance&enabled=true"
+
+# 知识点 11：并发工具调用（三个实验按顺序玩）
+# 1) 模型一次返回多个 tool_call 的执行时序：看返回值末尾的时间线（1.1.2 是串行逐个执行）
+curl "http://localhost:8080/ai/tool-parallel"
+# 2) 竞态压测：8 线程 × 10000 次直呼工具方法，看不线程安全的计数器怎么"对不上账"
+curl "http://localhost:8080/ai/tool-race"
+curl "http://localhost:8080/ai/tool-race?threads=16&loops=20000"
+# 3) 会话隔离：u1 记的笔记 u2 看不到（每会话一实例）
+curl "http://localhost:8080/ai/tool-session?conversationId=u1&message=记一条笔记：明天上午开评审会"
+curl "http://localhost:8080/ai/tool-session?conversationId=u1&message=我记过哪些笔记？"
+curl "http://localhost:8080/ai/tool-session?conversationId=u2&message=我记过哪些笔记？"
 ```
 
 ### 4. 验证 MCP Server（知识点 8）
@@ -112,13 +134,22 @@ src/main/java/com/example/saa/
 │   ├── StructuredOutputController.java# 知识点 4：结构化输出
 │   ├── ToolCallingController.java     # 知识点 5：工具调用注册与观察
 │   ├── MemoryAdvisorController.java   # 知识点 6：记忆 + Advisor
-│   └── RagController.java             # 知识点 7：RAG 查询
+│   ├── RagController.java             # 知识点 7：RAG 查询
+│   ├── ToolPoolController.java        # 知识点 10：工具池按需挂载与运行时摘挂
+│   └── ConcurrencyToolController.java # 知识点 11：并发工具调用三实验
 ├── config/
 │   ├── MemoryConfig.java              # 知识点 6：记忆三层结构
-│   └── RagConfig.java                 # 知识点 7：RAG 建库流水线
+│   ├── RagConfig.java                 # 知识点 7：RAG 建库流水线
+│   ├── ToolPoolConfig.java            # 知识点 10：工具池（注册/分组/开关）
+│   └── SessionToolRegistry.java       # 知识点 11：有状态工具每会话一实例
 ├── tools/
 │   ├── WeatherTools.java              # 知识点 5：@Tool 工具定义
-│   └── DateTimeTools.java
+│   ├── DateTimeTools.java
+│   ├── ConcurrencyDemoTools.java      # 知识点 11：反例/正例计数器 + 慢工具 + 幂等工具
+│   └── pool/
+│       ├── FlightTools.java           # 知识点 10：池内工具（travel 组）
+│       ├── HotelTools.java            # 知识点 10：池内工具（travel 组）
+│       └── ExchangeRateTools.java     # 知识点 10：池内工具（finance 组）
 ├── mcp/
 │   └── McpServerConfig.java           # 知识点 8：MCP Server + Client 接入姿势
 └── graph/
